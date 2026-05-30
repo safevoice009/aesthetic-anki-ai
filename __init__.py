@@ -253,7 +253,7 @@ Original Text:
                 data=json.dumps(payload).encode("utf-8"),
                 headers={"Content-Type": "application/json"}
             )
-            with urllib.request.urlopen(req, timeout=25) as response:
+            with urllib.request.urlopen(req, timeout=120) as response:
                 res_body = json.loads(response.read().decode("utf-8"))
                 html = res_body["choices"][0]["message"]["content"].strip()
                 
