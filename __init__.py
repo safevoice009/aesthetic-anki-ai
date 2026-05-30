@@ -1377,6 +1377,16 @@ class BeautifierDialog(QDialog):
         self.gen_individual_chk.setChecked(True)
         sidebar_layout.addWidget(self.gen_individual_chk)
         
+        sidebar_layout.addWidget(QLabel("Card Template Style:"))
+        self.mm_template_select = QComboBox()
+        self.mm_template_select.addItems([
+            "Concept Card (Grid Layout)",
+            "Question & Answer (Box Style)",
+            "Vocabulary / Key Terms (Table Style)",
+            "Code Showcase (Dark Block)"
+        ])
+        sidebar_layout.addWidget(self.mm_template_select)
+        
         self.gen_master_chk = QCheckBox("Generate Master Card")
         self.gen_master_chk.setChecked(True)
         sidebar_layout.addWidget(self.gen_master_chk)
@@ -1697,10 +1707,27 @@ class BeautifierDialog(QDialog):
                     
             collect_checked(self.mindmap_data)
             
+            template_style = self.mm_template_select.currentText()
+            
             for title, details in individual_nodes:
                 note = mw.col.new_note(model)
-                front_content = f"<h3>{root_title}</h3><hr><p style='font-size:16px; font-weight:bold;'>{title}</p>"
-                back_content = f"<p style='font-size:14px; line-height:1.6;'>{details}</p>"
+                
+                # Format front/back according to selected template style
+                if "Question & Answer" in template_style or "Box Style" in template_style:
+                    box_bg = "rgba(0, 0, 0, 0.03)" if not IS_DARK_THEME else "rgba(255, 255, 255, 0.03)"
+                    box_border = "rgba(140, 120, 83, 0.1)" if not IS_DARK_THEME else "rgba(197, 168, 128, 0.1)"
+                    front_content = f'<div style="padding: 12px; border: 1px solid {box_border}; border-radius: 8px; background: {box_bg};"><small style="opacity: 0.6; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">{root_title}</small><h4 style="margin: 4px 0 0 0; font-size: 15px; font-weight: bold;">{title}</h4></div>'
+                    back_content = f'<div style="padding: 12px; border: 1px solid {box_border}; border-radius: 8px; background: {box_bg};"><p style="margin: 0; font-size: 13.5px; line-height: 1.6;">{details}</p></div>'
+                elif "Vocabulary" in template_style or "Table Style" in template_style:
+                    border_color = "rgba(140, 120, 83, 0.15)" if not IS_DARK_THEME else "rgba(197, 168, 128, 0.15)"
+                    front_content = f'<table style="width:100%; border-collapse:collapse; font-family:sans-serif;"><tr><td style="padding: 10px; border-bottom: 2px solid #8c7853; font-weight: bold; font-size: 15px;"><span style="opacity:0.6; font-weight:normal; font-size:12px;">{root_title} &rsaquo; </span>{title}</td></tr></table>'
+                    back_content = f'<table style="width:100%; border-collapse:collapse; font-family:sans-serif;"><tr><td style="padding: 10px; font-size: 13.5px; line-height: 1.5; border-bottom: 1px solid {border_color};">{details}</td></tr></table>'
+                elif "Code Showcase" in template_style:
+                    front_content = f'<pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 13px; margin: 0; border: 1px solid #333;"><span style="color: #6a9955;">// {root_title}</span>\n<span style="color: #569cd6;">class</span> <span style="color: #4ec9b0;">{title.replace(" ", "")}</span> {{}}</pre>'
+                    back_content = f'<pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 13px; margin: 0; border: 1px solid #333; white-space: pre-wrap; word-wrap: break-word;">{details}</pre>'
+                else:  # Concept Card (Grid Layout)
+                    front_content = f'<h3 style="margin: 0 0 6px 0; font-size: 12px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.5px;">{root_title}</h3><hr style="border: none; border-top: 1px solid rgba(0,0,0,0.1); margin: 0 0 8px 0;"><p style="font-size: 16px; font-weight: bold; margin: 0;">{title}</p>'
+                    back_content = f'<p style="font-size: 14px; line-height: 1.6; margin: 0;">{details}</p>'
                 
                 note.fields[0] = wrap_with_theme(front_content, theme, bg_url, custom_css, font_family, max_width)
                 note.fields[1] = wrap_with_theme(back_content, theme, bg_url, custom_css, font_family, max_width)
