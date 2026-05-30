@@ -118,56 +118,88 @@ IMAGE_PRESETS = {
     "Nordic Slate": "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=600&auto=format&fit=crop"
 }
 
-def wrap_with_theme(html_content, theme_name, bg_url, custom_css):
+def markdown_to_html(md_text):
+    # Regex fallback formatting for markdown in case the model returns markdown symbols
+    html = md_text
+    # Bold
+    html = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", html)
+    # Italics
+    html = re.sub(r"\*(.*?)\*", r"<i>\1</i>", html)
+    # Inline code
+    html = re.sub(r"`(.*?)`", r"<code style='background:#1a1a1c;padding:2px 4px;border-radius:4px;color:#c5a880;'>\1</code>", html)
+    # Lists
+    html = re.sub(r"^\s*[-*]\s*(.*?)$", r"<li>\1</li>", html, flags=re.MULTILINE)
+    return html
+
+def wrap_with_theme(html_content, theme_name, bg_url, custom_css, font_family, max_width):
+    # Parse font selections
+    font_stack = "sans-serif"
+    if font_family == "Serif (Georgia)":
+        font_stack = "'Georgia', 'Times New Roman', serif"
+    elif font_family == "Modern (Segoe UI)":
+        font_stack = "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif"
+    elif font_family == "Calligraphy (Playfair)":
+        font_stack = "'Playfair Display', 'Brush Script MT', cursive, serif"
+    elif font_family == "Retro Monospace (JetBrains Mono)":
+        font_stack = "'JetBrains Mono', 'Courier New', monospace"
+        
     theme_styles = ""
     if theme_name == "Minimalist Coffee Shop":
-        theme_styles = """
+        theme_styles = f"""
             background: linear-gradient(rgba(247, 245, 240, 0.92), rgba(247, 245, 240, 0.92)), url('{bg_url}');
             background-size: cover;
             background-position: center;
             color: #2D221E;
             border: 1px solid rgba(45, 34, 30, 0.15);
             border-radius: 12px;
-            font-family: 'Georgia', 'Times New Roman', serif;
-            padding: 20px;
+            font-family: {font_stack};
+            padding: 22px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            max-width: {max_width};
+            margin: 8px auto;
         """
     elif theme_name == "Midnight Neon":
-        theme_styles = """
+        theme_styles = f"""
             background: linear-gradient(rgba(13, 13, 15, 0.85), rgba(13, 13, 15, 0.85)), url('{bg_url}');
             background-size: cover;
             background-position: center;
             color: #ffffff;
             border: 1px solid #c5a880;
             border-radius: 12px;
-            font-family: 'Segoe UI', -apple-system, sans-serif;
-            padding: 20px;
+            font-family: {font_stack};
+            padding: 22px;
             backdrop-filter: blur(10px);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            max-width: {max_width};
+            margin: 8px auto;
         """
     elif theme_name == "Sakura Blossom":
-        theme_styles = """
+        theme_styles = f"""
             background: linear-gradient(rgba(255, 245, 245, 0.94), rgba(255, 245, 245, 0.94)), url('{bg_url}');
             background-size: cover;
             background-position: center;
             color: #3a2a2a;
             border: 1px solid rgba(224, 184, 184, 0.5);
             border-radius: 12px;
-            font-family: 'Segoe UI', -apple-system, sans-serif;
-            padding: 20px;
+            font-family: {font_stack};
+            padding: 22px;
             box-shadow: 0 4px 20px rgba(224, 184, 184, 0.2);
+            max-width: {max_width};
+            margin: 8px auto;
         """
     else: # Nordic Slate
-        theme_styles = """
+        theme_styles = f"""
             background: linear-gradient(rgba(240, 244, 248, 0.95), rgba(240, 244, 248, 0.95)), url('{bg_url}');
             background-size: cover;
             background-position: center;
             color: #2c3e50;
             border: 1px solid rgba(180, 190, 200, 0.5);
             border-radius: 12px;
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            padding: 20px;
+            font-family: {font_stack};
+            padding: 22px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            max-width: {max_width};
+            margin: 8px auto;
         """
         
     theme_styles = theme_styles.replace("{bg_url}", bg_url)
@@ -194,9 +226,14 @@ class LLMWorker(QThread):
         if self.custom_system_prompt:
             prompt = self.custom_system_prompt.replace("{text}", self.text).replace("{template}", self.template)
         else:
+            cloze_note = ""
+            if "Cloze" in self.template:
+                cloze_note = "Identify key technical terms, statistics, or phrases and wrap them in Anki's standard cloze deletion markers, e.g. {{c1::hidden text}} or {{c2::hidden text}}."
+                
             prompt = f"""You are an expert card designer. Structure the following raw text to be highly readable for study. 
 Use semantic HTML tags: headings (e.g. <h3> or <h4>), clear bullet points, bold terms, or key-value grids/tables.
 Do not include any background containers, card margins, or generic card borders, as these will be wrapped automatically.
+{cloze_note}
 Return ONLY clean raw HTML ready to insert inside a container div. Do not wrap in ```html blockquotes.
 
 Original Text:
@@ -229,6 +266,9 @@ Original Text:
                     html = html[:-3]
                 html = html.strip()
                 
+                # Parse markdown fallbacks if LLM returned standard md elements
+                html = markdown_to_html(html)
+                
                 self.finished.emit(html, "")
         except Exception as e:
             self.finished.emit("", str(e))
@@ -239,7 +279,7 @@ class BeautifierDialog(QDialog):
         super().__init__(editor.parentWindow)
         self.editor = editor
         self.setWindowTitle("Aesthetic Anki AI")
-        self.resize(920, 600)
+        self.resize(920, 620)
         self.setStyleSheet(QSS_STYLESHEET)
         
         self.worker = None
@@ -255,7 +295,9 @@ class BeautifierDialog(QDialog):
             "background_image_url": IMAGE_PRESETS["Minimalist Coffee Shop"],
             "custom_css": "",
             "api_url": "http://127.0.0.1:8082/v1/chat/completions",
-            "custom_system_prompt": ""
+            "custom_system_prompt": "",
+            "font_family": "Serif (Georgia)",
+            "card_max_width": "600px"
         }
 
     def save_config(self):
@@ -282,6 +324,7 @@ class BeautifierDialog(QDialog):
         self.template_select = QComboBox()
         self.template_select.addItems([
             "✨ Auto-Detect Layout",
+            "✨ Auto-Generate Cloze Deletion",
             "Concept Card (Grid Layout)", 
             "Code Showcase (Dark Block)", 
             "Question & Answer (Glassmorphic Box)",
@@ -329,7 +372,7 @@ class BeautifierDialog(QDialog):
 
         # Theme selector row
         theme_row = QHBoxLayout()
-        theme_row.addWidget(QLabel("Aesthetic Preset Theme:"))
+        theme_row.addWidget(QLabel("Aesthetic Theme:"))
         self.theme_select = QComboBox()
         self.theme_select.addItems([
             "Minimalist Coffee Shop",
@@ -340,6 +383,25 @@ class BeautifierDialog(QDialog):
         self.theme_select.setCurrentText(self.config.get("theme", "Minimalist Coffee Shop"))
         self.theme_select.currentTextChanged.connect(self.on_theme_preset_changed)
         theme_row.addWidget(self.theme_select)
+        
+        theme_row.addWidget(QLabel("Font Preset:"))
+        self.font_select = QComboBox()
+        self.font_select.addItems([
+            "Serif (Georgia)",
+            "Modern (Segoe UI)",
+            "Calligraphy (Playfair)",
+            "Retro Monospace (JetBrains Mono)"
+        ])
+        self.font_select.setCurrentText(self.config.get("font_family", "Serif (Georgia)"))
+        self.font_select.currentTextChanged.connect(self.on_style_field_changed)
+        theme_row.addWidget(self.font_select)
+        
+        theme_row.addWidget(QLabel("Max Width:"))
+        self.max_width_edit = QLineEdit()
+        self.max_width_edit.setMaximumWidth(80)
+        self.max_width_edit.setText(self.config.get("card_max_width", "600px"))
+        self.max_width_edit.textChanged.connect(self.on_style_field_changed)
+        theme_row.addWidget(self.max_width_edit)
         settings_layout.addLayout(theme_row)
 
         # Background Image URL row
@@ -437,7 +499,9 @@ class BeautifierDialog(QDialog):
         theme = self.theme_select.currentText()
         bg_url = self.bg_url_edit.text().strip()
         custom_css = self.css_edit.toPlainText().strip()
-        wrapped_html = wrap_with_theme(self.raw_html_result, theme, bg_url, custom_css)
+        font_family = self.font_select.currentText()
+        max_width = self.max_width_edit.text().strip()
+        wrapped_html = wrap_with_theme(self.raw_html_result, theme, bg_url, custom_css, font_family, max_width)
         self.preview_edit.setHtml(wrapped_html)
 
     def import_custom_css(self):
@@ -456,6 +520,8 @@ class BeautifierDialog(QDialog):
         self.config["custom_css"] = self.css_edit.toPlainText().strip()
         self.config["custom_system_prompt"] = self.prompt_edit.toPlainText().strip()
         self.config["api_url"] = self.api_url_edit.text().strip()
+        self.config["font_family"] = self.font_select.currentText()
+        self.config["card_max_width"] = self.max_width_edit.text().strip()
         self.save_config()
         self.status_label.setText("Aesthetic settings successfully saved!")
 
@@ -491,10 +557,13 @@ class BeautifierDialog(QDialog):
         self.progress_bar.setVisible(True)
 
         template = self.template_select.currentText()
-        if "Auto-Detect" in template:
+        if "Auto-Detect Layout" in template:
             detected = self.auto_detect_template(text)
             self.status_label.setText(f"Auto-detected structure: {detected}. Contacting LLM...")
             template = detected
+        elif "Auto-Generate Cloze" in template:
+            self.status_label.setText("Extracting key terms for Cloze Deletion formatting...")
+            template = "Cloze Deletion formatting"
         else:
             self.status_label.setText("Querying local OpenVINO model pipeline...")
 
@@ -522,7 +591,9 @@ class BeautifierDialog(QDialog):
         theme = self.theme_select.currentText()
         bg_url = self.bg_url_edit.text().strip()
         custom_css = self.css_edit.toPlainText().strip()
-        final_html = wrap_with_theme(self.raw_html_result, theme, bg_url, custom_css)
+        font_family = self.font_select.currentText()
+        max_width = self.max_width_edit.text().strip()
+        final_html = wrap_with_theme(self.raw_html_result, theme, bg_url, custom_css, font_family, max_width)
         
         if final_html:
             self.editor.web.eval(f"document.execCommand('insertHTML', false, {json.dumps(final_html)})")
