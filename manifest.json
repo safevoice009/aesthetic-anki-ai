@@ -1,0 +1,8 @@
+{
+  "name": "Aesthetic Anki AI - Premium Card Layout Formatter",
+  "package": "aesthetic_anki_ai",
+  "version": "1.0",
+  "desc": "Ultra-premium customizable Anki add-on using local LLMs to format cards using gorgeous studygram aesthetics (Minimalist Coffee, Midnight Neon, Sakura, Nordic Slate).",
+  "minimum_ot_version": "2.1.0",
+  "max_ot_version": "2.1.99"
+}
