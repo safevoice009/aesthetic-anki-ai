@@ -611,14 +611,21 @@ def on_beautify_click(editor: Editor):
         initial_text = ""
         
     dialog = BeautifierDialog(editor, initial_text)
-    dialog.exec()
+    # Dual PyQt5/PyQt6 dialog execution compatibility
+    if hasattr(dialog, "exec"):
+        dialog.exec()
+    else:
+        dialog.exec_()
 
 
 def add_beautifier_button(buttons, editor):
+    addon_dir = os.path.dirname(__file__)
+    icon_path = os.path.join(addon_dir, "wand.svg")
+    
     btn = editor.addButton(
-        icon=None,
+        icon=icon_path,
         cmd="aesthetic_anki_ai",
-        func=lambda e=editor: on_beautify_click(e),
+        func=lambda _editor=None: on_beautify_click(editor),
         tip="🪄 Aesthetic Anki AI (Auto-layout & presets)",
         label="🪄"
     )
@@ -631,3 +638,4 @@ def init():
 
 
 init()
+
