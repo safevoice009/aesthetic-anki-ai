@@ -615,6 +615,7 @@ function updateTitle(id, val) {
     }
 }
 
+// Details change can affect height, so redraw lines
 function updateDetails(id, val) {
     let node = findNode(mindmap, id);
     if (node) {
@@ -764,6 +765,15 @@ container.addEventListener('mousemove', (e) => {
 
 container.addEventListener('scroll', drawConnectors);
 window.addEventListener('resize', drawConnectors);
+
+// Notify Anki that the DOM is ready so queued eval actions can run
+if (typeof pycmd !== 'undefined') {
+    pycmd("domDone");
+} else {
+    setTimeout(() => {
+        if (typeof pycmd !== 'undefined') pycmd("domDone");
+    }, 50);
+}
 </script>
 </body>
 </html>
@@ -1723,7 +1733,7 @@ class BeautifierDialog(QDialog):
                     front_content = f'<table style="width:100%; border-collapse:collapse; font-family:sans-serif;"><tr><td style="padding: 10px; border-bottom: 2px solid #8c7853; font-weight: bold; font-size: 15px;"><span style="opacity:0.6; font-weight:normal; font-size:12px;">{root_title} &rsaquo; </span>{title}</td></tr></table>'
                     back_content = f'<table style="width:100%; border-collapse:collapse; font-family:sans-serif;"><tr><td style="padding: 10px; font-size: 13.5px; line-height: 1.5; border-bottom: 1px solid {border_color};">{details}</td></tr></table>'
                 elif "Code Showcase" in template_style:
-                    front_content = f'<pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 13px; margin: 0; border: 1px solid #333;"><span style="color: #6a9955;">// {root_title}</span>\n<span style="color: #569cd6;">class</span> <span style="color: #4ec9b0;">{title.replace(" ", "")}</span> {{}}</pre>'
+                    front_content = f'<pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 13px; margin: 0; border: 1px solid #333;"><span style="color: #6a9955;">// {root_title}</span>\\n<span style="color: #569cd6;">class</span> <span style="color: #4ec9b0;">{title.replace(" ", "")}</span> {{}}</pre>'
                     back_content = f'<pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 13px; margin: 0; border: 1px solid #333; white-space: pre-wrap; word-wrap: break-word;">{details}</pre>'
                 else:  # Concept Card (Grid Layout)
                     front_content = f'<h3 style="margin: 0 0 6px 0; font-size: 12px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.5px;">{root_title}</h3><hr style="border: none; border-top: 1px solid rgba(0,0,0,0.1); margin: 0 0 8px 0;"><p style="font-size: 16px; font-weight: bold; margin: 0;">{title}</p>'
