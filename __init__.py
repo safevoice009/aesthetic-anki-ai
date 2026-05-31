@@ -497,10 +497,82 @@ body.dark-theme .btn-action:hover {
 
 .node-card:hover .btn-add-child {
     opacity: 1;
+/* Vertical Flowchart Layout */
+#mindmap-tree.layout-vertical {
+    flex-direction: column;
+    align-items: center;
+}
+#mindmap-tree.layout-vertical .tree-item {
+    flex-direction: column;
+    align-items: center;
+}
+#mindmap-tree.layout-vertical .node-children {
+    flex-direction: row;
+    padding-left: 0;
+    padding-top: 60px;
+    align-items: flex-start;
+}
+#mindmap-tree.layout-vertical .btn-add-child {
+    right: 50%;
+    bottom: -10px;
+    top: auto;
+    transform: translateX(50%);
+}
+#mindmap-tree.layout-vertical .btn-add-child:hover {
+    transform: translateX(50%) scale(1.1);
 }
 
-.btn-add-child:hover {
-    transform: translateY(-50%) scale(1.1);
+/* Slides Presentation Layout */
+#mindmap-tree.layout-slides {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+}
+#mindmap-tree.layout-slides .tree-item {
+    display: none;
+}
+#mindmap-tree.layout-slides .tree-item.active-slide-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+#mindmap-tree.layout-slides .active-slide-item > .node-card {
+    width: 320px;
+    min-height: 160px;
+    padding: 20px;
+    transform: scale(1.1);
+    box-shadow: var(--card-shadow);
+}
+#mindmap-tree.layout-slides .active-slide-item > .node-card .node-title {
+    font-size: 15px;
+}
+#mindmap-tree.layout-slides .active-slide-item > .node-card .node-details {
+    font-size: 12px;
+    min-height: 60px;
+}
+#mindmap-tree.layout-slides .node-children {
+    display: none !important;
+}
+
+#slides-nav {
+    display: none;
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    gap: 16px;
+    z-index: 100;
+    align-items: center;
+    background: var(--card-bg) !important;
+    color: var(--text-color) !important;
+    padding: 8px 16px;
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--card-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 </style>
 </head>
@@ -509,8 +581,98 @@ body.dark-theme .btn-action:hover {
     <svg id="connectors"></svg>
     <div id="mindmap-tree"></div>
 </div>
+<div id="slides-nav">
+    <button class="btn-action" title="Previous Slide" onclick="prevSlide()" style="width: auto; padding: 4px 8px; font-weight: bold;">◀ Prev</button>
+    <span id="slide-counter" style="font-weight: bold; font-size: 12px;">1 / 1</span>
+    <button class="btn-action" title="Next Slide" onclick="nextSlide()" style="width: auto; padding: 4px 8px; font-weight: bold;">Next ▶</button>
+</div>
 <script>
 let mindmap = null;
+let activeLayout = 'horizontal';
+let slideNodes = [];
+let currentSlideIndex = 0;
+
+function changeLayout(layout) {
+    activeLayout = layout;
+    const tree = document.getElementById('mindmap-tree');
+    const nav = document.getElementById('slides-nav');
+    if (!tree || !nav) return;
+    
+    tree.className = '';
+    tree.classList.add('layout-' + layout);
+    
+    if (layout === 'slides') {
+        nav.style.display = 'flex';
+        const conn = document.getElementById('connectors');
+        if (conn) conn.style.display = 'none';
+        
+        slideNodes = [];
+        function collectNodes(node) {
+            if (node) {
+                slideNodes.push(node.id);
+                if (node.children) {
+                    node.children.forEach(collectNodes);
+                }
+            }
+        }
+        collectNodes(mindmap);
+        currentSlideIndex = 0;
+        showSlide(currentSlideIndex);
+    } else {
+        nav.style.display = 'none';
+        const conn = document.getElementById('connectors');
+        if (conn) conn.style.display = 'block';
+        
+        document.querySelectorAll('.tree-item').forEach(el => {
+            el.style.display = '';
+            el.classList.remove('active-slide-item');
+            const kids = el.querySelector(':scope > .node-children');
+            if (kids) kids.style.removeProperty('display');
+        });
+        
+        setTimeout(drawConnectors, 50);
+    }
+}
+
+function showSlide(index) {
+    if (slideNodes.length === 0) return;
+    if (index < 0) index = 0;
+    if (index >= slideNodes.length) index = slideNodes.length - 1;
+    currentSlideIndex = index;
+    
+    const activeId = slideNodes[index];
+    
+    document.querySelectorAll('.tree-item').forEach(el => {
+        el.style.display = 'none';
+        el.classList.remove('active-slide-item');
+        const kids = el.querySelector(':scope > .node-children');
+        if (kids) kids.style.removeProperty('display');
+    });
+    
+    const activeItem = document.getElementById(`item-${activeId}`);
+    if (activeItem) {
+        activeItem.style.display = 'flex';
+        activeItem.classList.add('active-slide-item');
+        
+        const kids = activeItem.querySelector(':scope > .node-children');
+        if (kids) kids.style.setProperty('display', 'none', 'important');
+    }
+    
+    const counter = document.getElementById('slide-counter');
+    if (counter) counter.textContent = `${index + 1} / ${slideNodes.length}`;
+}
+
+function nextSlide() {
+    if (currentSlideIndex < slideNodes.length - 1) {
+        showSlide(currentSlideIndex + 1);
+    }
+}
+
+function prevSlide() {
+    if (currentSlideIndex > 0) {
+        showSlide(currentSlideIndex - 1);
+    }
+}
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -518,6 +680,7 @@ function escapeHtml(str) {
 }
 
 function findNode(node, id) {
+    if (!node) return null;
     if (node.id === id) return node;
     if (node.children) {
         for (let child of node.children) {
@@ -529,17 +692,17 @@ function findNode(node, id) {
 }
 
 function findParent(node, id) {
-    if (node.children) {
-        for (let child of node.children) {
-            if (child.id === id) return node;
-            let parent = findParent(child, id);
-            if (parent) return parent;
-        }
+    if (!node || !node.children) return null;
+    for (let child of node.children) {
+        if (child && child.id === id) return node;
+        let parent = findParent(child, id);
+        if (parent) return parent;
     }
     return null;
 }
 
 function setMindMap(data, isDark) {
+    console.log("setMindMap called in JS. isDark =", isDark, "data =", JSON.stringify(data));
     if (isDark) {
         document.body.classList.add('dark-theme');
     } else {
@@ -550,6 +713,7 @@ function setMindMap(data, isDark) {
 }
 
 function renderNode(node, isRoot = false) {
+    if (!node) return '';
     let occludedClass = node.occluded ? "is-occluded" : "";
     let checkedAttr = node.checked ? "checked" : "";
     
@@ -576,7 +740,7 @@ function renderNode(node, isRoot = false) {
     if (node.children && node.children.length > 0) {
         html += `<div class="node-children">`;
         node.children.forEach(child => {
-            html += renderNode(child);
+            if (child) html += renderNode(child);
         });
         html += `</div>`;
     } else {
@@ -615,7 +779,6 @@ function updateTitle(id, val) {
     }
 }
 
-// Details change can affect height, so redraw lines
 function updateDetails(id, val) {
     let node = findNode(mindmap, id);
     if (node) {
@@ -693,23 +856,41 @@ function drawConnectors() {
     svg.style.height = container.scrollHeight + 'px';
     
     function drawLines(node) {
+        if (!node) return;
         const parentCard = document.getElementById(`card-${node.id}`);
         if (parentCard && node.children) {
             const r1 = parentCard.getBoundingClientRect();
-            const x1 = r1.right - containerRect.left + container.scrollLeft;
-            const y1 = r1.top + r1.height / 2 - containerRect.top + container.scrollTop;
+            
+            let x1, y1;
+            if (activeLayout === 'vertical') {
+                x1 = r1.left + r1.width / 2 - containerRect.left + container.scrollLeft;
+                y1 = r1.bottom - containerRect.top + container.scrollTop;
+            } else {
+                x1 = r1.right - containerRect.left + container.scrollLeft;
+                y1 = r1.top + r1.height / 2 - containerRect.top + container.scrollTop;
+            }
             
             node.children.forEach(child => {
+                if (!child) return;
                 const childCard = document.getElementById(`card-${child.id}`);
                 if (childCard) {
                     const r2 = childCard.getBoundingClientRect();
-                    const x2 = r2.left - containerRect.left + container.scrollLeft;
-                    const y2 = r2.top + r2.height / 2 - containerRect.top + container.scrollTop;
                     
-                    const dx = Math.max(40, Math.abs(x2 - x1) * 0.5);
+                    let x2, y2, pathD;
+                    if (activeLayout === 'vertical') {
+                        x2 = r2.left + r2.width / 2 - containerRect.left + container.scrollLeft;
+                        y2 = r2.top - containerRect.top + container.scrollTop;
+                        const dy = Math.max(40, Math.abs(y2 - y1) * 0.5);
+                        pathD = `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`;
+                    } else {
+                        x2 = r2.left - containerRect.left + container.scrollLeft;
+                        y2 = r2.top + r2.height / 2 - containerRect.top + container.scrollTop;
+                        const dx = Math.max(40, Math.abs(x2 - x1) * 0.5);
+                        pathD = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+                    }
                     
                     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path.setAttribute('d', `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`);
+                    path.setAttribute('d', pathD);
                     path.setAttribute('stroke', getComputedStyle(document.documentElement).getPropertyValue('--connector-color') || '#c5a880');
                     path.setAttribute('stroke-width', '2');
                     path.setAttribute('fill', 'none');
@@ -720,7 +901,7 @@ function drawConnectors() {
             });
         }
     }
-    if (mindmap) {
+    if (mindmap && activeLayout !== 'slides') {
         drawLines(mindmap);
     }
 }
@@ -767,13 +948,21 @@ container.addEventListener('scroll', drawConnectors);
 window.addEventListener('resize', drawConnectors);
 
 // Notify Anki that the DOM is ready so queued eval actions can run
-if (typeof pycmd !== 'undefined') {
-    pycmd("domDone");
-} else {
-    setTimeout(() => {
-        if (typeof pycmd !== 'undefined') pycmd("domDone");
-    }, 50);
-}
+(function() {
+    let attempts = 0;
+    function notifyDomDone() {
+        attempts++;
+        if (typeof pycmd !== 'undefined') {
+            pycmd("domDone");
+            console.log("pycmd('domDone') successfully sent after " + attempts + " attempts.");
+        } else if (attempts < 100) {
+            setTimeout(notifyDomDone, 50);
+        } else {
+            console.error("Failed to detect pycmd after 100 attempts.");
+        }
+    }
+    notifyDomDone();
+})();
 </script>
 </body>
 </html>
@@ -1342,9 +1531,10 @@ class BeautifierDialog(QDialog):
         right_widget = QVBoxLayout()
         right_widget.addWidget(QLabel("AI Beautified Preview"))
         self.preview_edit = AnkiWebView(self)
-        self.preview_edit.setHtml(
+        self.preview_edit.stdHtml(
             "<div style='font-family:sans-serif; color:#73736e; text-align:center; padding-top:100px;'>"
-            "Generated layout preview will render here...</div>"
+            "Generated layout preview will render here...</div>",
+            default_css=False
         )
         
         right_container = QWidget()
@@ -1401,6 +1591,17 @@ class BeautifierDialog(QDialog):
         self.gen_master_chk.setChecked(True)
         sidebar_layout.addWidget(self.gen_master_chk)
         
+        sidebar_layout.addSpacing(10)
+        sidebar_layout.addWidget(QLabel("Mind Map Layout Style:"))
+        self.mm_layout_select = QComboBox()
+        self.mm_layout_select.addItems([
+            "Horizontal Tree (S-Curve)",
+            "Vertical Flowchart (Classification)",
+            "PowerPoint Study Slideshow"
+        ])
+        self.mm_layout_select.currentTextChanged.connect(self.on_mind_map_layout_changed)
+        sidebar_layout.addWidget(self.mm_layout_select)
+        
         sidebar_layout.addStretch()
         
         self.batch_gen_btn = QPushButton("Batch Generate Cards ⚡")
@@ -1414,7 +1615,13 @@ class BeautifierDialog(QDialog):
         # Right pane: Interactive SVG visual tree diagram
         self.mm_tree_view = AnkiWebView(self)
         self.mm_tree_view.set_bridge_command(self.on_mindmap_bridge, self)
-        self.mm_tree_view.setHtml(MIND_MAP_HTML_TEMPLATE)
+        
+        style_match = re.search(r"<style>(.*?)</style>", MIND_MAP_HTML_TEMPLATE, re.DOTALL)
+        head_css = f"<style>{style_match.group(1)}</style>" if style_match else ""
+        body_match = re.search(r"<body>(.*?)</body>", MIND_MAP_HTML_TEMPLATE, re.DOTALL)
+        body_content = body_match.group(1) if body_match else MIND_MAP_HTML_TEMPLATE
+        
+        self.mm_tree_view.stdHtml(body=body_content, head=head_css, default_css=False)
         
         mm_splitter.addWidget(self.mm_tree_view)
         mm_splitter.setSizes([260, 700])
@@ -1544,7 +1751,7 @@ class BeautifierDialog(QDialog):
         font_family = self.font_select.currentText()
         max_width = self.max_width_edit.text().strip()
         wrapped_html = wrap_with_theme(self.raw_html_result, theme, bg_url, custom_css, font_family, max_width)
-        self.preview_edit.setHtml(wrapped_html)
+        self.preview_edit.stdHtml(wrapped_html, default_css=False)
 
     def import_custom_css(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Import Custom CSS File", "", "CSS Files (*.css)")
@@ -1659,6 +1866,17 @@ class BeautifierDialog(QDialog):
             # Send initial mind map tree to interactive canvas
             is_dark = 1 if IS_DARK_THEME else 0
             js_code = f"setMindMap({json.dumps(self.mindmap_data)}, {is_dark});"
+            
+            # Set layout
+            layout_name = self.mm_layout_select.currentText()
+            js_style = "horizontal"
+            if "Vertical" in layout_name:
+                js_style = "vertical"
+            elif "PowerPoint" in layout_name:
+                js_style = "slides"
+            js_code += f"\nchangeLayout('{js_style}');"
+            
+            print(f"DEBUG [aesthetic-anki-ai]: Sending js_code. mm_tree_view._domDone = {self.mm_tree_view._domDone}")
             self.mm_tree_view.eval(js_code)
             self.batch_gen_btn.setEnabled(True)
 
@@ -1669,6 +1887,14 @@ class BeautifierDialog(QDialog):
                 self.mindmap_data = json.loads(json_str)
             except Exception:
                 pass
+
+    def on_mind_map_layout_changed(self, layout_name):
+        js_style = "horizontal"
+        if "Vertical" in layout_name:
+            js_style = "vertical"
+        elif "PowerPoint" in layout_name:
+            js_style = "slides"
+        self.mm_tree_view.eval(f"changeLayout('{js_style}');")
 
     def batch_generate_notes(self):
         if not self.mindmap_data:
